@@ -1,0 +1,39 @@
+name: Publish reviewed The Gracious Banquets redesign
+on:
+  push:
+    branches: [gh-pages]
+    paths:
+      - '.github/workflows/publish-reviewed-gracious.yml'
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore exact reviewed design from immutable SharpSites source
+        shell: python
+        run: |
+          import urllib.request, base64, lzma, json, hashlib, pathlib
+          root='https://raw.githubusercontent.com/SharpSites-demo/sparta-gym-spa-ritik-demo/ad7b1d5ed6c101695e6ae5cb1e70554eef64e44e/.publishing/reviewed-sites/'
+          encoded=b''.join(urllib.request.urlopen(root+f'part-{i:02d}.b64', timeout=40).read() for i in range(1,13))
+          assert len(encoded)==69020
+          assert hashlib.sha256(encoded).hexdigest()=='c0c3bb69f80435fc18cbb110bba7c0f37c57cc8c48470067601f6c5c5a83dfc2'
+          compressed=base64.b64decode(encoded, validate=True)
+          assert hashlib.sha256(compressed).hexdigest()=='15ba6b5f5d15374362328608ec8724f1e4216166e1372f4a741be70332900eb9'
+          sites=json.loads(lzma.decompress(compressed))
+          html=sites['gracious-banquets-naraina-demo']
+          assert hashlib.sha256(html.encode()).hexdigest()=='c41f72306ef70f1daecba8d617272ed79163e8bfa7ff7ba6d8781c01707b4887'
+          old='https://sharpsites-demo.github.io/gracious-banquets-naraina-demo/'
+          new='https://sharpsites-demo.github.io/the-gracious-banquets-naraina/'
+          html=html.replace(old,new)
+          assert 'ritik-sharma1.github.io' not in html.lower()
+          assert new in html
+          pathlib.Path('index.html').write_text(html, encoding='utf-8')
+      - name: Commit reviewed design
+        run: |
+          git config user.name 'SharpSites Publisher'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet || git commit -m 'Publish reviewed The Gracious Banquets redesign'
+          git push
